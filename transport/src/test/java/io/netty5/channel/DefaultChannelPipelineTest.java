@@ -1274,7 +1274,7 @@ public class DefaultChannelPipelineTest {
             @Override
             public void read(ChannelHandlerContext ctx, ReadBufferAllocator readBufferAllocator) {
                 fail();
-                ctx.read();
+                ctx.read(readBufferAllocator);
             }
 
             @Skip

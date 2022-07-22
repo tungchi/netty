@@ -38,7 +38,7 @@ public class HttpContentDecompressorTest {
             @Override
             public void read(ChannelHandlerContext ctx, ReadBufferAllocator readBufferAllocator) {
                 readCalled.incrementAndGet();
-                ctx.read();
+                ctx.read(readBufferAllocator);
             }
         }, new HttpContentDecompressor(), new ChannelHandler() {
             @Override

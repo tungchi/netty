@@ -37,7 +37,7 @@ public abstract class SslClientHelloHandler<T> extends ByteToMessageDecoder {
 
     private boolean handshakeFailed;
     private boolean suppressRead;
-    private boolean readPending;
+    private ReadBufferAllocator pendingReadBufferAllocator;
     private Buffer handshakeBuffer;
 
     @Override
@@ -201,9 +201,10 @@ public abstract class SslClientHelloHandler<T> extends ByteToMessageDecoder {
                             ctx.fireChannelExceptionCaught(cause);
                         }
                     } finally {
-                        if (readPending) {
-                            readPending = false;
-                            ctx.read();
+                        ReadBufferAllocator pendingReadBufferAllocator = this.pendingReadBufferAllocator;
+                        if (pendingReadBufferAllocator != null) {
+                            this.pendingReadBufferAllocator = null;
+                            ctx.read(pendingReadBufferAllocator);
                         }
                     }
                 });
@@ -256,9 +257,9 @@ public abstract class SslClientHelloHandler<T> extends ByteToMessageDecoder {
     @Override
     public void read(ChannelHandlerContext ctx, ReadBufferAllocator readBufferAllocator) {
         if (suppressRead) {
-            readPending = true;
+            pendingReadBufferAllocator = readBufferAllocator;
         } else {
-            ctx.read();
+            ctx.read(readBufferAllocator);
         }
     }
 }
