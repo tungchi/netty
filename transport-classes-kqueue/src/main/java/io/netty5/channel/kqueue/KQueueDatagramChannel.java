@@ -27,6 +27,7 @@ import io.netty5.channel.ChannelShutdownDirection;
 import io.netty5.channel.DefaultBufferAddressedEnvelope;
 import io.netty5.channel.EventLoop;
 import io.netty5.channel.FixedRecvBufferAllocator;
+import io.netty5.channel.ReadBufferAllocator;
 import io.netty5.channel.RecvBufferAllocator;
 import io.netty5.channel.socket.DatagramPacket;
 import io.netty5.channel.socket.DatagramChannel;
@@ -489,8 +490,8 @@ public final class KQueueDatagramChannel
     }
 
     @Override
-    void readReady(RecvBufferAllocator.Handle allocHandle, BufferAllocator recvBufferAllocator,
-                   Predicate<RecvBufferAllocator.Handle> maybeMoreData) {
+    void readReady(RecvBufferAllocator.Handle allocHandle, ReadBufferAllocator readBufferAllocator,
+                   BufferAllocator recvBufferAllocator, Predicate<RecvBufferAllocator.Handle> maybeMoreData) {
         final ChannelPipeline pipeline = pipeline();
 
         Throwable exception = null;
@@ -498,7 +499,11 @@ public final class KQueueDatagramChannel
         try {
             boolean connected = isConnected();
             do {
-                buffer = allocHandle.allocate(recvBufferAllocator);
+                buffer = readBufferAllocator.allocate(recvBufferAllocator, allocHandle.estimateBufferCapacity());
+                if (buffer == null) {
+                    break;
+                }
+                assert buffer.isDirect();
                 allocHandle.attemptedBytesRead(buffer.writableBytes());
 
                 final DatagramPacket packet;

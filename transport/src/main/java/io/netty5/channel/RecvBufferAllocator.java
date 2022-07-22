@@ -31,18 +31,19 @@ public interface RecvBufferAllocator {
      */
     Handle newHandle();
 
-    interface Handle {
-        /**
-         * Creates a new receive buffer whose capacity is probably large enough to read all inbound data and small
-         * enough not to waste its space.
-         */
-        Buffer allocate(BufferAllocator alloc);
+    // TODO: Should this really extend ReadBufferAllocator or better not.
+    interface Handle extends ReadBufferAllocator {
+
+        @Override
+        default Buffer allocate(BufferAllocator allocator, int estimatedCapacity) {
+            return allocator.allocate(estimatedCapacity);
+        }
 
         /**
-         * Similar to {@link #allocate(BufferAllocator)} except that it does not allocate anything but just tells the
-         * capacity.
+         * Similar to {@link #allocate(BufferAllocator, int)} except that it does not allocate anything
+         * but just tells the capacity.
          */
-        int guess();
+        int estimateBufferCapacity();
 
         /**
          * Reset any counters that have accumulated and recommend how many messages/bytes should be read for the next

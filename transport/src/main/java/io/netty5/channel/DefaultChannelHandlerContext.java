@@ -787,7 +787,7 @@ final class DefaultChannelHandlerContext implements ChannelHandlerContext, Resou
     public ChannelHandlerContext read() {
         EventExecutor executor = originalExecutor();
         if (executor.inEventLoop()) {
-            findAndInvokeRead();
+            findAndInvokeRead(pipeline.defaultReadBufferAllocator());
         } else {
             Tasks tasks = invokeTasks();
             executor.execute(tasks.invokeReadTask);
@@ -798,18 +798,37 @@ final class DefaultChannelHandlerContext implements ChannelHandlerContext, Resou
     private void findAndInvokeRead() {
         DefaultChannelHandlerContext ctx = findContextOutbound(MASK_READ);
         if (ctx != null) {
-            ctx.invokeRead();
+            ctx.invokeRead(pipeline.defaultReadBufferAllocator());
         }
     }
 
-    private void invokeRead() {
+    @Override
+    public ChannelHandlerContext read(ReadBufferAllocator readBufferAllocator) {
+        requireNonNull(readBufferAllocator, "");
+        EventExecutor executor = originalExecutor();
+        if (executor.inEventLoop()) {
+            findAndInvokeRead(readBufferAllocator);
+        } else {
+            executor.execute(() -> findAndInvokeRead(readBufferAllocator));
+        }
+        return this;
+    }
+
+    private void findAndInvokeRead(ReadBufferAllocator allocator) {
+        DefaultChannelHandlerContext ctx = findContextOutbound(MASK_READ);
+        if (ctx != null) {
+            ctx.invokeRead(allocator);
+        }
+    }
+
+    private void invokeRead(ReadBufferAllocator allocator) {
         Future<Void> failed = saveCurrentPendingBytesIfNeededOutbound();
         if (failed != null) {
             return;
         }
 
         try {
-            handler().read(this);
+            handler().read(this, allocator);
         } catch (Throwable t) {
             handleOutboundHandlerException(t, false);
         } finally {

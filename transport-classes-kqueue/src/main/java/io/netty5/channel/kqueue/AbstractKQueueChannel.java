@@ -20,6 +20,7 @@ import io.netty5.buffer.api.BufferAllocator;
 import io.netty5.buffer.api.DefaultBufferAllocators;
 import io.netty5.channel.ChannelOption;
 import io.netty5.channel.ChannelShutdownDirection;
+import io.netty5.channel.ReadBufferAllocator;
 import io.netty5.channel.RecvBufferAllocator;
 import io.netty5.channel.socket.SocketProtocolFamily;
 import io.netty5.channel.unix.IntegerUnixChannelOption;
@@ -54,6 +55,8 @@ abstract class AbstractKQueueChannel<P extends UnixChannel>
     protected volatile boolean active;
 
     protected boolean readPending;
+
+    private ReadBufferAllocator readBufferAllocator;
 
     private long numberBytesPending;
 
@@ -232,10 +235,10 @@ abstract class AbstractKQueueChannel<P extends UnixChannel>
     }
 
     @Override
-    protected final void doRead() {
+    protected final void doRead(ReadBufferAllocator readBufferAllocator) {
         // Channel.read() or ChannelHandlerContext.read() was called
         readPending = true;
-
+        this.readBufferAllocator = readBufferAllocator;
         // We must set the read flag here as it is possible the user didn't read in the last read loop, the
         // executeReadReadyRunnable could read nothing, and if the user doesn't explicitly call read they will
         // never get data after this.
@@ -425,8 +428,10 @@ abstract class AbstractKQueueChannel<P extends UnixChannel>
         }
         maybeMoreDataToRead = false;
 
+        assert readBufferAllocator != null;
+
         try {
-            readReady(allocHandle, ioBufferAllocator(), maybeMoreData);
+            readReady(allocHandle, readBufferAllocator, ioBufferAllocator(), maybeMoreData);
         } finally {
             maybeMoreDataToRead = this.numberBytesPending != 0;
 
@@ -451,7 +456,8 @@ abstract class AbstractKQueueChannel<P extends UnixChannel>
         }
     }
 
-    abstract void readReady(RecvBufferAllocator.Handle allocHandle, BufferAllocator recvBufferAllocator,
+    abstract void readReady(RecvBufferAllocator.Handle allocHandle, ReadBufferAllocator readBufferAllocator,
+                            BufferAllocator recvBufferAllocator,
                             Predicate<RecvBufferAllocator.Handle> maybeMoreData);
 
     final void writeReady() {
@@ -489,14 +495,17 @@ abstract class AbstractKQueueChannel<P extends UnixChannel>
 
     final void readEOF() {
         // This must happen before we attempt to read. This will ensure reading continues until an error occurs.
-        final RecvBufferAllocator.Handle allocHandle = recvBufAllocHandle();
         eof = true;
 
         if (isActive()) {
-            // If it is still active, we need to call readReady as otherwise we may miss to
+            // EOF might be signaled even if the user not requested a read.
+            // Let's trigger a read so the user can intercept it if wanted and influence the readBufferAllocator
+            // that is used.
+            //
+            // If it is still active, we need to call read() as otherwise we may miss to
             // read pending data from the underlying file descriptor.
             // See https://github.com/netty/netty/issues/3709
-            readReady(allocHandle, ioBufferAllocator(), maybeMoreData);
+            read();
         } else {
             // Just to be safe make sure the input marked as closed.
             shutdownInput(true);

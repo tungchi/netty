@@ -33,7 +33,7 @@ public class FixedRecvBufferAllocator extends DefaultMaxMessagesRecvBufferAlloca
         }
 
         @Override
-        public int guess() {
+        public int estimateBufferCapacity() {
             return bufferSize;
         }
     }

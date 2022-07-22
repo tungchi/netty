@@ -29,7 +29,7 @@ public class DefaultMaxMessagesRecvBufferAllocatorTest {
             public Handle newHandle() {
                 return new MaxMessageHandle() {
                     @Override
-                    public int guess() {
+                    public int estimateBufferCapacity() {
                         return 0;
                     }
                 };

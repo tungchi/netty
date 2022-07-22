@@ -238,7 +238,7 @@ public interface ChannelHandler {
      * Invoked when the last message read by the current read operation has been consumed by
      * {@link #channelRead(ChannelHandlerContext, Object)}.  If {@link ChannelOption#AUTO_READ} is off, no further
      * attempt to read an inbound data from the current {@link Channel} will be made until
-     * {@link ChannelHandlerContext#read()} is called.
+     * {@link ChannelOutboundInvoker#read(ReadBufferAllocator)} is called.
      */
     @Skip
     default void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
@@ -354,11 +354,11 @@ public interface ChannelHandler {
     }
 
     /**
-     * Intercepts {@link ChannelHandlerContext#read()}.
+     * Intercepts {@link ChannelOutboundInvoker#read(ReadBufferAllocator)}.
      */
     @Skip
-    default void read(ChannelHandlerContext ctx) {
-        ctx.read();
+    default void read(ChannelHandlerContext ctx, ReadBufferAllocator readBufferAllocator) {
+        ctx.read(readBufferAllocator);
     }
 
     /**

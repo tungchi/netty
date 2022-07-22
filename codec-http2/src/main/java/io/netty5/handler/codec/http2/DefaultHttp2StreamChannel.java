@@ -22,6 +22,7 @@ import io.netty5.channel.ChannelOption;
 import io.netty5.channel.ChannelOutputShutdownException;
 import io.netty5.channel.ChannelShutdownDirection;
 import io.netty5.channel.MaxMessagesRecvBufferAllocator;
+import io.netty5.channel.ReadBufferAllocator;
 import io.netty5.util.Resource;
 import io.netty5.channel.Channel;
 import io.netty5.channel.ChannelHandler;
@@ -155,6 +156,11 @@ final class DefaultHttp2StreamChannel extends DefaultAttributeMap implements Htt
             WATERMARK_UPDATER = AtomicReferenceFieldUpdater.newUpdater(
                     DefaultHttp2StreamChannel.class, WriteBufferWaterMark.class, "writeBufferWaterMark");
 
+    @SuppressWarnings("rawtypes")
+    private static final AtomicReferenceFieldUpdater<DefaultHttp2StreamChannel, RecvBufferAllocator.Handle>
+            RECV_HANDLE_UPDATER = AtomicReferenceFieldUpdater.newUpdater(
+                    DefaultHttp2StreamChannel.class, RecvBufferAllocator.Handle.class, "recvHandle");
+
     private volatile BufferAllocator bufferAllocator = DefaultBufferAllocators.preferredAllocator();
     private volatile RecvBufferAllocator rcvBufAllocator = new AdaptiveRecvBufferAllocator();
 
@@ -180,6 +186,8 @@ final class DefaultHttp2StreamChannel extends DefaultAttributeMap implements Htt
     private volatile boolean inputShutdown;
     private volatile boolean outputShutdown;
 
+    private volatile RecvBufferAllocator.Handle recvHandle;
+
     // Cached to reduce GC
     private Runnable fireChannelWritabilityChangedTask;
 
@@ -188,8 +196,8 @@ final class DefaultHttp2StreamChannel extends DefaultAttributeMap implements Htt
     /**
      * This variable represents if a read is in progress for the current channel or was requested.
      * Note that depending upon the {@link RecvBufferAllocator} behavior a read may extend beyond the
-     * {@link #readTransport()} method scope. The {@link #readTransport()} loop may
-     * drain all pending data, and then if the parent channel is reading this channel may still accept frames.
+     * {@link #readTransport(ReadBufferAllocator)} method scope. The {@link #readTransport(ReadBufferAllocator)}
+     * loop may drain all pending data, and then if the parent channel is reading this channel may still accept frames.
      */
     private ReadStatus readStatus = ReadStatus.IDLE;
 
@@ -199,7 +207,6 @@ final class DefaultHttp2StreamChannel extends DefaultAttributeMap implements Htt
     private boolean firstFrameWritten;
     private boolean readCompletePending;
 
-    private RecvBufferAllocator.Handle recvHandle;
     private boolean writeDoneAndNoFlush;
     private boolean closeInitiated;
     private boolean readEOS;
@@ -461,9 +468,12 @@ final class DefaultHttp2StreamChannel extends DefaultAttributeMap implements Htt
     }
 
     private RecvBufferAllocator.Handle recvBufAllocHandle() {
+        RecvBufferAllocator.Handle recvHandle = this.recvHandle;
         if (recvHandle == null) {
-            recvHandle = rcvBufAllocator.newHandle();
-            recvHandle.reset();
+            recvHandle = getRecvBufferAllocator().newHandle();
+            if (!RECV_HANDLE_UPDATER.compareAndSet(this, null, recvHandle)) {
+                recvHandle = this.recvHandle;
+            }
         }
         return recvHandle;
     }
@@ -675,7 +685,7 @@ final class DefaultHttp2StreamChannel extends DefaultAttributeMap implements Htt
         }
     }
 
-    private void readTransport() {
+    private void readTransport(ReadBufferAllocator allocator) {
         if (!isActive()) {
             return;
         }
@@ -1340,8 +1350,8 @@ final class DefaultHttp2StreamChannel extends DefaultAttributeMap implements Htt
         }
 
         @Override
-        protected void readTransport() {
-            defaultHttp2StreamChannel().readTransport();
+        protected void readTransport(ReadBufferAllocator readBufferAllocator) {
+            defaultHttp2StreamChannel().readTransport(readBufferAllocator);
         }
 
         @Override
@@ -1357,6 +1367,11 @@ final class DefaultHttp2StreamChannel extends DefaultAttributeMap implements Htt
         @Override
         protected void sendOutboundEventTransport(Object event, Promise<Void> promise) {
             defaultHttp2StreamChannel().sendOutboundEventTransport(event, promise);
+        }
+
+        @Override
+        protected ReadBufferAllocator defaultReadBufferAllocator() {
+            return defaultHttp2StreamChannel().recvBufAllocHandle();
         }
     }
 }

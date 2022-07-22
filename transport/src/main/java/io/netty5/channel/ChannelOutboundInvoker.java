@@ -140,7 +140,21 @@ public interface ChannelOutboundInvoker extends FuturePromiseFactory {
      * handler can decide to continue reading.  If there's a pending read operation already, this method does nothing.
      * <p>
      * This will result in having the
-     * {@link ChannelHandler#read(ChannelHandlerContext)}
+     * {@link ChannelHandler#read(ChannelHandlerContext, ReadBufferAllocator)}
+     * method called of the next {@link ChannelHandler} contained in the {@link ChannelPipeline} of the
+     * {@link Channel}.
+     */
+    ChannelOutboundInvoker read(ReadBufferAllocator readBufferAllocator);
+
+    /**
+     * Request to Read data from the {@link Channel} into the first inbound buffer, triggers an
+     * {@link ChannelHandler#channelRead(ChannelHandlerContext, Object)} event if data was
+     * read, and triggers a
+     * {@link ChannelHandler#channelReadComplete(ChannelHandlerContext) channelReadComplete} event so the
+     * handler can decide to continue reading.  If there's a pending read operation already, this method does nothing.
+     * <p>
+     * This will result in having the
+     * {@link ChannelHandler#read(ChannelHandlerContext, ReadBufferAllocator)}
      * method called of the next {@link ChannelHandler} contained in the {@link ChannelPipeline} of the
      * {@link Channel}.
      */

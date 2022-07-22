@@ -27,7 +27,7 @@ public final class KQueueGuessRecvBufferAllocator extends DefaultMaxMessagesRecv
         return new MaxMessageHandle() {
 
             @Override
-            public int guess() {
+            public int estimateBufferCapacity() {
                 // attemptedBytesRead(...) is called with what KQueue tells us.
                 int guess = attemptedBytesRead();
                 if (guess == 0) {

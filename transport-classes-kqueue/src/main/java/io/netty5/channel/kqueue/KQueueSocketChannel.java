@@ -27,6 +27,7 @@ import io.netty5.channel.ChannelShutdownDirection;
 import io.netty5.channel.DefaultFileRegion;
 import io.netty5.channel.EventLoop;
 import io.netty5.channel.FileRegion;
+import io.netty5.channel.ReadBufferAllocator;
 import io.netty5.channel.RecvBufferAllocator;
 import io.netty5.channel.internal.ChannelUtils;
 import io.netty5.channel.socket.SocketChannel;
@@ -499,13 +500,13 @@ public final class KQueueSocketChannel
     }
 
     @Override
-    void readReady(RecvBufferAllocator.Handle allocHandle, BufferAllocator recvBufferAllocator,
-                   Predicate<RecvBufferAllocator.Handle> maybeMoreData) {
+    void readReady(RecvBufferAllocator.Handle allocHandle, ReadBufferAllocator readBufferAllocator,
+                   BufferAllocator recvBufferAllocator, Predicate<RecvBufferAllocator.Handle> maybeMoreData) {
         if (socket.protocolFamily() == SocketProtocolFamily.UNIX &&
                 getReadMode() == DomainSocketReadMode.FILE_DESCRIPTORS) {
             readReadyFd(allocHandle);
         } else {
-            readReadyBytes(allocHandle, recvBufferAllocator, maybeMoreData);
+            readReadyBytes(allocHandle, readBufferAllocator, recvBufferAllocator, maybeMoreData);
         }
     }
 
@@ -873,7 +874,8 @@ public final class KQueueSocketChannel
         }
     }
 
-    private void readReadyBytes(RecvBufferAllocator.Handle allocHandle, BufferAllocator recvBufferAllocator,
+    private void readReadyBytes(RecvBufferAllocator.Handle allocHandle, ReadBufferAllocator readBufferAllocator,
+                                BufferAllocator recvBufferAllocator,
                                 Predicate<RecvBufferAllocator.Handle> maybeMoreData) {
         final ChannelPipeline pipeline = pipeline();
         allocHandle.reset();
@@ -881,9 +883,13 @@ public final class KQueueSocketChannel
         boolean close = false;
         try {
             do {
+                buffer = readBufferAllocator.allocate(recvBufferAllocator, allocHandle.estimateBufferCapacity());
+                if (buffer == null) {
+                    break;
+                }
                 // we use a direct buffer here as the native implementations only be able
                 // to handle direct buffers.
-                buffer = allocHandle.allocate(recvBufferAllocator);
+                assert buffer.isDirect();
                 doReadBytes(buffer);
                 if (allocHandle.lastBytesRead() <= 0) {
                     // nothing was read, release the buffer.

@@ -23,9 +23,10 @@ import io.netty5.channel.ChannelOutboundBuffer;
 import io.netty5.channel.ChannelShutdownDirection;
 import io.netty5.channel.EventLoop;
 import io.netty5.channel.EventLoopGroup;
+import io.netty5.channel.ReadBufferAllocator;
+import io.netty5.channel.RecvBufferAllocator;
 import io.netty5.channel.ServerChannelRecvBufferAllocator;
 import io.netty5.channel.nio.AbstractNioMessageChannel;
-import io.netty5.channel.socket.SocketProtocolFamily;
 import io.netty5.util.NetUtil;
 import io.netty5.util.internal.SocketUtils;
 import io.netty5.util.internal.logging.InternalLogger;
@@ -240,7 +241,8 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel<Channel, S
     }
 
     @Override
-    protected int doReadMessages(List<Object> buf) throws Exception {
+    protected int doReadMessages(ReadBufferAllocator readBufferAllocator, RecvBufferAllocator.Handle recvHandle,
+                                 List<Object> buf) throws Exception {
         SocketChannel ch = SocketUtils.accept(javaChannel());
 
         try {

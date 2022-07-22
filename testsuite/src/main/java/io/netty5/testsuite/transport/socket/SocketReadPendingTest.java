@@ -17,8 +17,6 @@ package io.netty5.testsuite.transport.socket;
 
 import io.netty5.bootstrap.Bootstrap;
 import io.netty5.bootstrap.ServerBootstrap;
-import io.netty5.buffer.api.Buffer;
-import io.netty5.buffer.api.BufferAllocator;
 import io.netty5.util.Resource;
 import io.netty5.channel.Channel;
 import io.netty5.channel.ChannelHandler;
@@ -149,12 +147,7 @@ public class SocketReadPendingTest extends AbstractSocketTest {
                 private int numMessagesRead;
 
                 @Override
-                public Buffer allocate(BufferAllocator alloc) {
-                    return alloc.allocate(guess());
-                }
-
-                @Override
-                public int guess() {
+                public int estimateBufferCapacity() {
                     return 1; // only ever allocate buffers of size 1 to ensure the number of reads is controlled.
                 }
 

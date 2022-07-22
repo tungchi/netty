@@ -27,7 +27,7 @@ public final class ServerChannelRecvBufferAllocator extends DefaultMaxMessagesRe
     public Handle newHandle() {
         return new MaxMessageHandle() {
             @Override
-            public int guess() {
+            public int estimateBufferCapacity() {
                 return 128;
             }
         };

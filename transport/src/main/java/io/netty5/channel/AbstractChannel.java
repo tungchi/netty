@@ -46,6 +46,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import static io.netty5.channel.ChannelOption.ALLOW_HALF_CLOSURE;
 import static io.netty5.channel.ChannelOption.AUTO_CLOSE;
@@ -100,6 +101,11 @@ public abstract class AbstractChannel<P extends Channel, L extends SocketAddress
     private static final AtomicIntegerFieldUpdater<AbstractChannel> AUTOREAD_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(AbstractChannel.class, "autoRead");
 
+    @SuppressWarnings("rawtypes")
+    private static final AtomicReferenceFieldUpdater<AbstractChannel, RecvBufferAllocator.Handle> RECV_HANDLE_UPDATER =
+            AtomicReferenceFieldUpdater.newUpdater(
+                    AbstractChannel.class, RecvBufferAllocator.Handle.class, "recvHandle");
+
     private volatile BufferAllocator bufferAllocator = DefaultBufferAllocators.preferredAllocator();
     private volatile RecvBufferAllocator rcvBufAllocator;
     private volatile MessageSizeEstimator msgSizeEstimator = DEFAULT_MSG_SIZE_ESTIMATOR;
@@ -117,8 +123,8 @@ public abstract class AbstractChannel<P extends Channel, L extends SocketAddress
     // All fields below are only called from within the EventLoop thread.
     private boolean closeInitiated;
     private Throwable initialCloseCause;
-    private boolean readBeforeActive;
-    private RecvBufferAllocator.Handle recvHandle;
+    private ReadBufferAllocator readBeforeActive;
+    private volatile RecvBufferAllocator.Handle recvHandle;
     private MessageSizeEstimator.Handle estimatorHandler;
     private boolean inWriteFlushed;
     /** true if the channel has never been registered, false otherwise */
@@ -383,9 +389,12 @@ public abstract class AbstractChannel<P extends Channel, L extends SocketAddress
     protected final void readIfIsAutoRead() {
         assertEventLoop();
 
-        if (isAutoRead() || readBeforeActive) {
-            readBeforeActive = false;
-            read();
+        if (readBeforeActive != null) {
+            ReadBufferAllocator readBufferAllocator = readBeforeActive;
+            readBeforeActive = null;
+            readTransport(readBufferAllocator);
+        } else if (isAutoRead()) {
+            read(defaultReadBufferAllocator());
         }
     }
 
@@ -393,11 +402,13 @@ public abstract class AbstractChannel<P extends Channel, L extends SocketAddress
         assert eventLoop.inEventLoop();
     }
 
-    protected RecvBufferAllocator.Handle recvBufAllocHandle() {
-        assertEventLoop();
-
+    protected final RecvBufferAllocator.Handle recvBufAllocHandle() {
+        RecvBufferAllocator.Handle recvHandle = this.recvHandle;
         if (recvHandle == null) {
             recvHandle = getRecvBufferAllocator().newHandle();
+            if (!RECV_HANDLE_UPDATER.compareAndSet(this, null, recvHandle)) {
+                recvHandle = this.recvHandle;
+            }
         }
         return recvHandle;
     }
@@ -827,11 +838,11 @@ public abstract class AbstractChannel<P extends Channel, L extends SocketAddress
         safeSetSuccess(promise);
     }
 
-    private void readTransport() {
+    private void readTransport(ReadBufferAllocator readBufferAllocator) {
         assertEventLoop();
 
         if (!isActive()) {
-            readBeforeActive = true;
+            readBeforeActive = readBufferAllocator;
             return;
         }
 
@@ -840,7 +851,7 @@ public abstract class AbstractChannel<P extends Channel, L extends SocketAddress
             return;
         }
         try {
-            doRead();
+            doRead(readBufferAllocator);
         } catch (final Exception e) {
             invokeLater(() -> pipeline.fireChannelExceptionCaught(e));
             closeTransport(newPromise());
@@ -1127,7 +1138,7 @@ public abstract class AbstractChannel<P extends Channel, L extends SocketAddress
     /**
      * Schedule a read operation.
      */
-    protected abstract void doRead() throws Exception;
+    protected abstract void doRead(ReadBufferAllocator readBufferAllocator) throws Exception;
 
     /**
      * Flush the content of the given buffer to the remote peer.
@@ -1669,6 +1680,10 @@ public abstract class AbstractChannel<P extends Channel, L extends SocketAddress
         // Noop
     }
 
+    private ReadBufferAllocator defaultReadBufferAllocator() {
+        return recvBufAllocHandle();
+    }
+
     protected static class DefaultAbstractChannelPipeline extends DefaultChannelPipeline {
         protected DefaultAbstractChannelPipeline(AbstractChannel<?, ?, ?> channel) {
             super(channel);
@@ -1739,9 +1754,9 @@ public abstract class AbstractChannel<P extends Channel, L extends SocketAddress
         }
 
         @Override
-        protected final void readTransport() {
+        protected final void readTransport(ReadBufferAllocator readBufferAllocator) {
             AbstractChannel<?, ?, ?> channel = abstractChannel();
-            channel.readTransport();
+            channel.readTransport(readBufferAllocator);
             channel.runAfterTransportAction();
         }
 
@@ -1764,6 +1779,11 @@ public abstract class AbstractChannel<P extends Channel, L extends SocketAddress
             AbstractChannel<?, ?, ?> channel = abstractChannel();
             channel.sendOutboundEventTransport(event, promise);
             channel.runAfterTransportAction();
+        }
+
+        @Override
+        protected final ReadBufferAllocator defaultReadBufferAllocator() {
+            return abstractChannel().defaultReadBufferAllocator();
         }
     }
 }

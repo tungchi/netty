@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class AdaptiveRecvBufferAllocatorTest {
 
@@ -63,7 +64,7 @@ public class AdaptiveRecvBufferAllocatorTest {
     }
 
     private void computingNext(long expectedSize, int actualReadBytes) {
-        assertEquals(expectedSize, handle.guess());
+        assertEquals(expectedSize, handle.estimateBufferCapacity());
         handle.reset();
         handle.lastBytesRead(actualReadBytes);
         handle.readComplete();
@@ -102,7 +103,8 @@ public class AdaptiveRecvBufferAllocatorTest {
     }
 
     private static void allocRead(Handle handle, BufferAllocator alloc, int expectedBufferSize, int lastRead) {
-        try (Buffer buf = handle.allocate(alloc)) {
+        try (Buffer buf = handle.allocate(alloc, expectedBufferSize)) {
+            assertNotNull(buf);
             assertEquals(expectedBufferSize, buf.capacity());
             handle.attemptedBytesRead(expectedBufferSize);
             handle.lastBytesRead(lastRead);

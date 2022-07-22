@@ -119,7 +119,7 @@ public class AdaptiveRecvBufferAllocator extends DefaultMaxMessagesRecvBufferAll
         }
 
         @Override
-        public int guess() {
+        public int estimateBufferCapacity() {
             return nextReceiveBufferSize;
         }
 

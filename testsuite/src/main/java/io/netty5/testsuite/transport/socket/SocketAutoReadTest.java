@@ -17,7 +17,6 @@ package io.netty5.testsuite.transport.socket;
 
 import io.netty5.bootstrap.Bootstrap;
 import io.netty5.bootstrap.ServerBootstrap;
-import io.netty5.buffer.api.Buffer;
 import io.netty5.buffer.api.BufferAllocator;
 import io.netty5.buffer.api.DefaultBufferAllocators;
 import io.netty5.util.Resource;
@@ -172,12 +171,7 @@ public class SocketAutoReadTest extends AbstractSocketTest {
                 private int lastBytesRead;
 
                 @Override
-                public Buffer allocate(BufferAllocator alloc) {
-                    return alloc.allocate(guess());
-                }
-
-                @Override
-                public int guess() {
+                public int estimateBufferCapacity() {
                     return 1; // only ever allocate buffers of size 1 to ensure the number of reads is controlled.
                 }
 

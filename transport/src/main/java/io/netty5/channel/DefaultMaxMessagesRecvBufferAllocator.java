@@ -15,9 +15,6 @@
  */
 package io.netty5.channel;
 
-import io.netty5.buffer.api.Buffer;
-import io.netty5.buffer.api.BufferAllocator;
-
 import java.util.function.Predicate;
 
 import static io.netty5.util.internal.ObjectUtil.checkPositive;
@@ -29,7 +26,6 @@ import static io.netty5.util.internal.ObjectUtil.checkPositive;
 public abstract class DefaultMaxMessagesRecvBufferAllocator implements MaxMessagesRecvBufferAllocator {
     private final boolean ignoreBytesRead;
     private volatile int maxMessagesPerRead;
-    private volatile boolean respectMaybeMoreData = true;
 
     protected DefaultMaxMessagesRecvBufferAllocator() {
         this(1);
@@ -75,11 +71,6 @@ public abstract class DefaultMaxMessagesRecvBufferAllocator implements MaxMessag
         public void reset() {
             maxMessagePerRead = maxMessagesPerRead();
             totalMessages = totalBytesRead = 0;
-        }
-
-        @Override
-        public Buffer allocate(BufferAllocator alloc) {
-            return alloc.allocate(guess());
         }
 
         @Override

@@ -25,6 +25,7 @@ import io.netty5.channel.ChannelPipeline;
 import io.netty5.channel.ChannelShutdownDirection;
 import io.netty5.channel.EventLoop;
 import io.netty5.channel.EventLoopGroup;
+import io.netty5.channel.ReadBufferAllocator;
 import io.netty5.channel.RecvBufferAllocator;
 import io.netty5.channel.ServerChannelRecvBufferAllocator;
 import io.netty5.channel.socket.DomainSocketAddress;
@@ -359,8 +360,8 @@ public final class EpollServerSocketChannel
     }
 
     @Override
-    protected void epollInReady(RecvBufferAllocator.Handle allocHandle, BufferAllocator recvBufferAllocator,
-                                boolean receivedRdHup) {
+    protected void epollInReady(RecvBufferAllocator.Handle allocHandle, ReadBufferAllocator readBufferAllocator,
+                                BufferAllocator recvBufferAllocator, boolean receivedRdHup) {
         final ChannelPipeline pipeline = pipeline();
         allocHandle.attemptedBytesRead(1);
         Throwable exception = null;

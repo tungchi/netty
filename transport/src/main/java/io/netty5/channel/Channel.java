@@ -255,6 +255,12 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
     BufferAllocator bufferAllocator();
 
     @Override
+    default Channel read(ReadBufferAllocator readBufferAllocator) {
+        pipeline().read(readBufferAllocator);
+        return this;
+    }
+
+    @Override
     default Channel read() {
         pipeline().read();
         return this;

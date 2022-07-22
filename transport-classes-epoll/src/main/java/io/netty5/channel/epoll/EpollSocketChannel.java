@@ -27,6 +27,7 @@ import io.netty5.channel.ChannelShutdownDirection;
 import io.netty5.channel.DefaultFileRegion;
 import io.netty5.channel.EventLoop;
 import io.netty5.channel.FileRegion;
+import io.netty5.channel.ReadBufferAllocator;
 import io.netty5.channel.RecvBufferAllocator;
 import io.netty5.channel.internal.ChannelUtils;
 import io.netty5.channel.socket.SocketChannel;
@@ -525,11 +526,13 @@ public final class EpollSocketChannel
 
     private void handleReadException(ChannelPipeline pipeline, Buffer buffer, Throwable cause, boolean close,
                                      RecvBufferAllocator.Handle allocHandle) {
-        if (buffer.readableBytes() > 0) {
-            readPending = false;
-            pipeline.fireChannelRead(buffer);
-        } else {
-            buffer.close();
+        if (buffer != null) {
+            if (buffer.readableBytes() > 0) {
+                readPending = false;
+                pipeline.fireChannelRead(buffer);
+            } else {
+                buffer.close();
+            }
         }
         allocHandle.readComplete();
         pipeline.fireChannelReadComplete();
@@ -545,13 +548,13 @@ public final class EpollSocketChannel
     }
 
     @Override
-    protected void epollInReady(RecvBufferAllocator.Handle handle, BufferAllocator recvBufferAllocator,
-                                boolean receivedRdHup) {
+    protected void epollInReady(RecvBufferAllocator.Handle handle, ReadBufferAllocator readBufferAllocator,
+                                BufferAllocator recvBufferAllocator, boolean receivedRdHup) {
         if (socket.protocolFamily() == SocketProtocolFamily.UNIX
                 && getReadMode() == DomainSocketReadMode.FILE_DESCRIPTORS) {
             epollInReadFd(handle, receivedRdHup);
         } else {
-            epollInReadyBytes(handle, recvBufferAllocator, receivedRdHup);
+            epollInReadyBytes(handle, readBufferAllocator, recvBufferAllocator, receivedRdHup);
         }
     }
 
@@ -559,8 +562,8 @@ public final class EpollSocketChannel
         return receivedRdHup ? MAYBE_MORE_DATA_RDHUP : MAYBE_MORE_DATA;
     }
 
-    private void epollInReadyBytes(RecvBufferAllocator.Handle recvAlloc, BufferAllocator bufferAllocator,
-                                   boolean receivedRdHup) {
+    private void epollInReadyBytes(RecvBufferAllocator.Handle recvAlloc, ReadBufferAllocator readBufferAllocator,
+                                   BufferAllocator bufferAllocator, boolean receivedRdHup) {
         final ChannelPipeline pipeline = pipeline();
         Predicate<RecvBufferAllocator.Handle> maybeMoreData = maybeMoreData(receivedRdHup);
 
@@ -570,7 +573,11 @@ public final class EpollSocketChannel
             do {
                 // we use a direct buffer here as the native implementations only be able
                 // to handle direct buffers.
-                buffer = recvAlloc.allocate(bufferAllocator);
+                buffer = readBufferAllocator.allocate(bufferAllocator, recvAlloc.estimateBufferCapacity());
+                if (buffer == null) {
+                    break;
+                }
+                assert buffer.isDirect();
                 doReadBytes(buffer);
                 if (recvAlloc.lastBytesRead() <= 0) {
                     // nothing was read, release the buffer.

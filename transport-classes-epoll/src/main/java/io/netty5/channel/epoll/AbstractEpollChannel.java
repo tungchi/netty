@@ -20,6 +20,7 @@ import io.netty5.buffer.api.BufferAllocator;
 import io.netty5.buffer.api.DefaultBufferAllocators;
 import io.netty5.channel.ChannelOption;
 import io.netty5.channel.ChannelShutdownDirection;
+import io.netty5.channel.ReadBufferAllocator;
 import io.netty5.channel.RecvBufferAllocator;
 import io.netty5.channel.socket.DomainSocketAddress;
 import io.netty5.channel.socket.SocketProtocolFamily;
@@ -62,6 +63,8 @@ abstract class AbstractEpollChannel<P extends UnixChannel>
     protected volatile boolean active;
 
     boolean readPending;
+
+    private ReadBufferAllocator readBufferAllocator;
 
     private EpollRegistration registration;
 
@@ -195,9 +198,10 @@ abstract class AbstractEpollChannel<P extends UnixChannel>
     }
 
     @Override
-    protected final void doRead() throws Exception {
+    protected final void doRead(ReadBufferAllocator readBufferAllocator) throws Exception {
         // Channel.read() or ChannelHandlerContext.read() was called
         readPending = true;
+        this.readBufferAllocator = readBufferAllocator;
 
         // We must set the read flag here as it is possible the user didn't read in the last read loop, the
         // executeEpollInReadyRunnable could read nothing, and if the user doesn't explicitly call read they will
@@ -345,8 +349,10 @@ abstract class AbstractEpollChannel<P extends UnixChannel>
         RecvBufferAllocator.Handle handle = recvBufAllocHandle();
         handle.reset();
 
+        assert readBufferAllocator != null;
+
         try {
-            epollInReady(handle, ioBufferAllocator(), receivedRdHup);
+            epollInReady(handle, readBufferAllocator, ioBufferAllocator(), receivedRdHup);
         } finally {
             this.maybeMoreDataToRead = maybeMoreDataToRead(handle) || receivedRdHup;
 
@@ -374,8 +380,8 @@ abstract class AbstractEpollChannel<P extends UnixChannel>
     /**
      * Called once EPOLLIN event is ready to be processed
      */
-    protected abstract void epollInReady(RecvBufferAllocator.Handle handle, BufferAllocator recvBufferAllocator,
-                                         boolean receivedRdHup);
+    protected abstract void epollInReady(RecvBufferAllocator.Handle handle, ReadBufferAllocator readBufferAllocator,
+                                         BufferAllocator recvBufferAllocator, boolean receivedRdHup);
 
     protected abstract boolean maybeMoreDataToRead(RecvBufferAllocator.Handle handle);
 
@@ -395,10 +401,14 @@ abstract class AbstractEpollChannel<P extends UnixChannel>
         receivedRdHup = true;
 
         if (isActive()) {
-            // If it is still active, we need to call epollInReady as otherwise we may miss to
+            // EOF might be signalled even if the user not requested a read.
+            // Let's trigger a read so the user can intercept it if wanted and influence the readBufferAllocator
+            // that is used.
+            //
+            // If it is still active, we need to call read() as otherwise we may miss to
             // read pending data from the underlying file descriptor.
             // See https://github.com/netty/netty/issues/3709
-            epollInReady();
+            read();
         } else {
             // Just to be safe make sure the input marked as closed.
             shutdownInput(true);

@@ -17,6 +17,7 @@ package io.netty5.handler.ssl;
 
 import io.netty5.buffer.BufferUtil;
 import io.netty5.buffer.api.Buffer;
+import io.netty5.channel.ReadBufferAllocator;
 import io.netty5.util.Resource;
 import io.netty5.channel.ChannelHandlerContext;
 import io.netty5.handler.codec.ByteToMessageDecoder;
@@ -253,7 +254,7 @@ public abstract class SslClientHelloHandler<T> extends ByteToMessageDecoder {
     protected abstract void onLookupComplete(ChannelHandlerContext ctx, Future<? extends T> future) throws Exception;
 
     @Override
-    public void read(ChannelHandlerContext ctx) {
+    public void read(ChannelHandlerContext ctx, ReadBufferAllocator readBufferAllocator) {
         if (suppressRead) {
             readPending = true;
         } else {

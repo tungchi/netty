@@ -15,9 +15,6 @@
  */
 package io.netty5.channel;
 
-import io.netty5.buffer.api.Buffer;
-import io.netty5.buffer.api.BufferAllocator;
-
 import java.util.AbstractMap;
 import java.util.Map.Entry;
 import java.util.function.Predicate;
@@ -40,12 +37,7 @@ public class DefaultMaxBytesRecvBufferAllocator implements MaxBytesRecvBufferAll
         private final Predicate<Handle> defaultMaybeMoreSupplier = h -> attemptBytesRead == lastBytesRead;
 
         @Override
-        public Buffer allocate(BufferAllocator alloc) {
-            return alloc.allocate(guess());
-        }
-
-        @Override
-        public int guess() {
+        public int estimateBufferCapacity() {
             return Math.min(individualReadMax, bytesToRead);
         }
 

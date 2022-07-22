@@ -15,8 +15,6 @@
  */
 package io.netty5.handler.codec.http2;
 
-import io.netty5.buffer.api.Buffer;
-import io.netty5.buffer.api.BufferAllocator;
 import io.netty5.channel.Channel;
 import io.netty5.channel.ChannelHandler;
 import io.netty5.channel.ChannelInitializer;
@@ -66,12 +64,7 @@ public class TestChannelInitializer extends ChannelInitializer<Channel> {
                 private int numMessagesRead;
 
                 @Override
-                public Buffer allocate(BufferAllocator alloc) {
-                    return alloc.allocate(guess());
-                }
-
-                @Override
-                public int guess() {
+                public int estimateBufferCapacity() {
                     return 1; // only ever allocate buffers of size 1 to ensure the number of reads is controlled.
                 }
 

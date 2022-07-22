@@ -18,6 +18,7 @@ package io.netty5.channel.socket.nio;
 import io.netty5.buffer.api.Buffer;
 import io.netty5.channel.ChannelShutdownDirection;
 import io.netty5.channel.FixedRecvBufferAllocator;
+import io.netty5.channel.ReadBufferAllocator;
 import io.netty5.util.Resource;
 import io.netty5.buffer.api.WritableComponent;
 import io.netty5.buffer.api.WritableComponentProcessor;
@@ -380,15 +381,13 @@ public final class NioDatagramChannel
     }
 
     @Override
-    protected int doReadMessages(List<Object> buf) throws Exception {
-        RecvBufferAllocator.Handle allocHandle = recvBufAllocHandle();
-
-        return doReadBufferMessages(allocHandle, buf);
-    }
-
-    private int doReadBufferMessages(Handle allocHandle, List<Object> buf) throws IOException {
-        Buffer data = allocHandle.allocate(bufferAllocator());
-        allocHandle.attemptedBytesRead(data.writableBytes());
+    protected int doReadMessages(ReadBufferAllocator readBufferAllocator, Handle recvHandle, List<Object> buf)
+            throws Exception {
+        Buffer data = readBufferAllocator.allocate(bufferAllocator(), recvHandle.estimateBufferCapacity());
+        if (data == null) {
+            return 0;
+        }
+        recvHandle.attemptedBytesRead(data.writableBytes());
         boolean free = true;
         try {
             ReceiveDatagram receiveDatagram = new ReceiveDatagram(javaChannel());
@@ -398,8 +397,8 @@ public final class NioDatagramChannel
                 return 0;
             }
 
-            allocHandle.lastBytesRead(receiveDatagram.bytesReceived);
-            data.skipWritableBytes(allocHandle.lastBytesRead());
+            recvHandle.lastBytesRead(receiveDatagram.bytesReceived);
+            data.skipWritableBytes(recvHandle.lastBytesRead());
             buf.add(new DatagramPacket(data, localAddress(), remoteAddress));
             free = false;
             return 1;
