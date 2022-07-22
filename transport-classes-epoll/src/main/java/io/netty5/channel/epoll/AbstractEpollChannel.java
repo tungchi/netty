@@ -345,11 +345,15 @@ abstract class AbstractEpollChannel<P extends UnixChannel>
             clearEpollIn0();
             return;
         }
+        if (readBufferAllocator == null) {
+            // readBufferAllocator can be null in case of epollInRead() be called because of POLLERR.
+            // in this case just call read() so the user is aware that there is something to do.
+            read();
+            return;
+        }
         maybeMoreDataToRead = false;
         RecvBufferAllocator.Handle handle = recvBufAllocHandle();
         handle.reset();
-
-        assert readBufferAllocator != null;
 
         try {
             epollInReady(handle, readBufferAllocator, ioBufferAllocator(), receivedRdHup);
