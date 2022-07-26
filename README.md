@@ -2,7 +2,10 @@
 
 # Netty Project
 
-Netty is an asynchronous event-driven network application framework for rapid development of maintainable high performance protocol servers & clients.
+Netty is an asynchronous event-driven network application framework for rapid development of maintainable high
+performance protocol servers & clients.
+
+Netty是一个异步事件驱动的网络应用框架，用于快速开发可维护的高性能协议服务器和客户端。
 
 ## Links
 
@@ -14,15 +17,20 @@ Netty is an asynchronous event-driven network application framework for rapid de
 
 ## How to build
 
-For the detailed information about building and developing Netty, please visit [the developer guide](https://netty.io/wiki/developer-guide.html).  This page only gives very basic information.
+For the detailed information about building and developing Netty, please
+visit [the developer guide](https://netty.io/wiki/developer-guide.html). This page only gives very basic information.
+
+关于构建和开发Netty的详细信息，请访问开发者指南。这一页只提供非常基本的信息。
 
 You require the following to build Netty:
 
 * Latest stable [OpenJDK 8](https://adoptium.net/)
 * Latest stable [Apache Maven](https://maven.apache.org/)
-* If you are on Linux or MacOS, you need [additional development packages](https://netty.io/wiki/native-transports.html) installed on your system, because you'll build the native transport.
+* If you are on Linux or MacOS, you need [additional development packages](https://netty.io/wiki/native-transports.html)
+  installed on your system, because you'll build the native transport.
 
-Note that this is build-time requirement.  JDK 5 (for 3.x) or 6 (for 4.0+ / 4.1+) is enough to run your Netty-based application.
+Note that this is build-time requirement. JDK 5 (for 3.x) or 6 (for 4.0+ / 4.1+) is enough to run your Netty-based
+application.
 
 ## Branches to look
 
@@ -34,6 +42,7 @@ Netty can be used in modular JDK9+ applications as a collection of automatic mod
 reverse-DNS style, and are derived from subproject names rather than root packages due to historical reasons. They
 are listed below:
 
+Netty可以在模块化的JDK9+应用中作为自动模块的集合使用。模块名称遵循反向dns风格，并且由于历史原因从子项目名称而不是根包派生。它们列在下面:
  * `io.netty.all`
  * `io.netty.buffer`
  * `io.netty.codec`
@@ -61,7 +70,7 @@ are listed below:
  * `io.netty.transport.sctp`
  * `io.netty.transport.udt`
 
-
-
 Automatic modules do not provide any means to declare dependencies, so you need to list each used module separately
 in your `module-info` file.
+
+自动模块不提供任何声明依赖关系的方法，所以你需要在你的模块信息文件中单独列出每个使用的模块。
